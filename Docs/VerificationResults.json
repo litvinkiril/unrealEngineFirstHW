@@ -1,0 +1,19 @@
+{
+  "verified_on": "2026-10-19",
+  "timezone": "Europe/Moscow",
+  "engine": "5.8",
+  "editor_build": "Succeeded",
+  "game_build": "Succeeded",
+  "stamina_model": "PASS",
+  "headless": {
+    "succeeded": 1,
+    "failed": 0,
+    "succeededWithWarnings": 0
+  },
+  "rendered": {
+    "succeeded": 1,
+    "failed": 0,
+    "succeededWithWarnings": 0
+  },
+  "test": "Homework.Gameplay.EndToEnd"
+}

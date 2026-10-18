@@ -1,59 +1,50 @@
-# Настройка Blueprint-ассетов
+# Сохранённая настройка Blueprint
 
-Статус: эти изменения описаны, но ещё не выполнены и не сохранены в `.uasset`. Они требуют установленного Unreal Editor и исходного Third Person Blueprint проекта. Имена и пути стандартных ассетов могут отличаться между версиями UE.
+Все изменения выполнены и сохранены в `.uasset` для Unreal Engine 5.8. Эта страница служит навигацией для проверки, а не списком оставшихся ручных действий.
 
-## 1. Enhanced Input
+## Персонаж
 
-В каталоге рядом со стандартными Input Action создать:
+`/Game/ThirdPerson/Blueprints/BP_ThirdPersonCharacter`
 
-| Ассет | Value Type | Клавиша в стандартном IMC |
-|---|---|---|
-| `IA_Sprint` | Digital (bool) | Left Shift |
-| `IA_Interact` | Digital (bool) | E |
+Parent Class: `HomeworkCharacter`. Штатные Move, Aim, прыжок, камера, меш и обработка основных Input Actions сохранены.
 
-Для этих действий оставить Triggers и Modifiers пустыми. Отдельный Hold-триггер не нужен: C++ начинает действие по `Started` и завершает спринт по `Completed` или `Canceled`.
-
-Открыть **тот Mapping Context, который уже активирует шаблон**, обычно `IMC_Default`. Добавить новые действия и клавиши, сохранив существующие WASD, мышь и прыжок. Не создавать второй независимый контекст вместо контекста шаблона.
-
-В Class Defaults `BP_ThirdPersonCharacter` после смены родителя назначить:
-
-- Homework → Input → Sprint Action: `IA_Sprint`.
-- Homework → Input → Interaction Action: `IA_Interact`.
-
-Проверить, что штатный граф шаблона добавляет этот Mapping Context локальному игроку. Дополнительные обработчики Shift/E в Event Graph не нужны: их связывает `SetupPlayerInputComponent` в C++.
-
-## 2. Подписка на делегат в персонаже
-
-В Event Graph `BP_ThirdPersonCharacter`:
-
-1. В существующей цепочке `Event BeginPlay` после настройки стандартного ввода добавить `Bind Event to On Interaction`, Target = Self. Если удобнее, поставить Sequence и сохранить старую цепочку в Then 0, новую подписку в Then 1.
-2. Из красного пина Event создать Custom Event `HandleInteraction` без параметров.
-3. Из белого выхода `HandleInteraction` вызвать `Print String` с точным текстом **`Interaction triggered!`** и включённым Print to Screen.
-4. Compile и Save.
+В Class Defaults назначены `IA_Sprint` и `IA_Interact`. Новые графы взаимодействия расположены ниже штатных графов в EventGraph:
 
 ```text
-Event BeginPlay → штатная инициализация → Bind Event to On Interaction (Self)
-                                            Event ← HandleInteraction
+Event BeginPlay → Bind Event to OnInteraction (Self)
+                            Event ← HandleInteraction
 HandleInteraction → Print String("Interaction triggered!")
 ```
 
-При удержании E событие должно срабатывать один раз. Не заменять подписку прямым `Print String` в обработчике ввода: по условию сообщение приходит через Dynamic Multicast Delegate.
+`Print to Screen` и `Print to Log` включены. Действие E привязано в C++ к `Started`, поэтому удержание клавиши не повторяет событие.
 
-## 3. Animation Blueprint
+## Ввод
 
-У стандартного манекена Quinn может быть дочерний `ABP_Quinn`, наследующий графы от `ABP_Manny`. Изменять нужно **родительский AnimBP, который действительно содержит Locomotion State Machine**. Не менять родителя дочернего `ABP_Quinn`: это оторвёт его от графа родителя.
+- `/Game/Input/Actions/IA_Sprint`: Boolean, Left Shift.
+- `/Game/Input/Actions/IA_Interact`: Boolean, E.
+- Оба действия добавлены в `/Game/Input/IMC_Default` без Hold-триггеров.
+- Штатный `BP_ThirdPersonPlayerController` добавляет контексты игроку. Существующие WASD, мышь, пробел и поддержка контроллера сохранены.
+- В C++ спринт привязан к Started, Completed и Canceled.
 
-1. Открыть корневой AnimBP (обычно `ABP_Manny`) и проверить, что его текущий родитель — `AnimInstance`. Поменять его на `HomeworkAnimInstance`. Если текущий родитель другой и содержит важную логику, вместо переподчинения читать `bIsSprinting` через `Try Get Pawn Owner → Cast to HomeworkCharacter` в существующем Event Blueprint Update Animation.
-2. Сохранить существующий Event Graph обновления скорости, направления и падения. Не создавать второй Event Blueprint Update Animation.
-3. У `HomeworkAnimInstance` переменная `bIsSprinting` уже обновляется из C++-персонажа каждый кадр. Включить Show Inherited Variables, чтобы увидеть её; в интерфейсе она может отображаться как `Is Sprinting`.
-4. В существующей машине Locomotion добавить состояние `Sprint`.
-5. Внутри Sprint разместить Sequence Player со стандартной анимацией бега **для того же скелета**, что и текущий манекен. Например, выбрать имеющийся в проекте `MM_Run_Fwd` для Manny; точное имя проверить в Content Browser. Loop Animation включить. Соединить выход позы с Output Animation Pose. Не использовать анимацию другого скелета без ретаргетинга.
-6. Соединить обычное наземное состояние движения (`Idle/Run`, `Locomotion` либо аналог в шаблоне) со Sprint. Правило входа: `bIsSprinting AND NOT IsFalling`. Правило возврата: `NOT bIsSprinting`.
-7. Сохранить прыжки: продублировать существующие переходы из обычного наземного состояния в состояния прыжка/падения также для Sprint, с теми же условиями. При посадке можно возвращаться через штатное наземное состояние: если Shift всё ещё активен и выносливость есть, следующий переход снова направит в Sprint.
-8. Для переходов обычное движение ↔ Sprint установить Crossfade Duration примерно 0,15 с. Compile и Save для корневого AnimBP и его дочерних Blueprint.
+## Анимация
 
-Это добавляет требуемое отдельное состояние Sprint и сохраняет стандартные прыжки. Условие `NOT IsFalling` защищает наземную анимацию от включения во время прыжка.
+`/Game/Characters/Mannequins/Anims/Unarmed/ABP_Unarmed`
 
-## 4. Сохранение и сдача
+Это штатный AnimBP шаблона **UE 5.8**. Parent Class: `HomeworkAnimInstance`. Его C++ `NativeUpdateAnimation` читает `bIsSprinting` у персонажа. Существующий EventGraph по-прежнему обновляет скорость, направление, ShouldMove и IsFalling.
 
-Сохранить персонажа, два Input Action, изменённый Mapping Context и AnimBP. Проверить в PIE, затем закрыть редактор и добавить `.uproject`, `Config`, `Content`, `Source`, `Plugins` в Git. Не добавлять `Binaries`, `DerivedDataCache`, `Intermediate` и `Saved`.
+Внутренняя машина `Locomotion`:
+
+```text
+Idle ↔ Walk / Run ↔ Sprint
+```
+
+- Walk / Run → Sprint: `bIsSprinting AND ShouldMove`.
+- Sprint → Walk / Run: `NOT (bIsSprinting AND ShouldMove)`.
+- Crossfade Duration: 0.15 с.
+- Sprint: Sequence Player `MF_Unarmed_Jog_Fwd`, Loop включён, Play Rate = 1.5.
+
+Внешняя машина `Main States` не изменена. Она выбирает Locomotion / Jump / Fall Loop / Land. Поэтому Sprint не перекрывает прыжок; после завершения Land снова обновляется наземное состояние.
+
+## Воспроизводимость
+
+Исходник редакторской настройки: `Source/HomeworkEditor/HomeworkSetupCommandlet.cpp`. Повторный запуск `-run=HomeworkSetup -Configure` не дублирует Input mappings, подписку на делегат или Sprint. Он предназначен для версии штатных ассетов UE 5.8, поставляемой вместе с этим проектом.

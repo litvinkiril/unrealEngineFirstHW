@@ -1,67 +1,71 @@
-# Домашнее задание №1: расширение Third Person Template
+# Домашнее задание №1 — основы механики Unreal Engine
 
-Спринт, взаимодействие через Dynamic Multicast Delegate и выносливость на C++ для Unreal Engine 5.
+Готовый C++/Blueprint-проект на основе **Third Person Template, Unreal Engine 5.8**: спринт, взаимодействие через Dynamic Multicast Delegate, отдельное состояние анимации Sprint и выносливость. Карта, персонаж, ввод и Animation Blueprint сохранены в `Content/`.
 
-## Статус
+## Запуск
 
-**Это исходный C++-плагин, а не готовый к сдаче игровой проект.**
-На компьютере подготовки обнаружен Epic Games Launcher, но не установленный Unreal Editor и не исходный Third Person проект. Поэтому в репозитории пока нет `.uproject`, карты и настроенных Blueprint-ассетов. Сборка плагина средствами Unreal Engine и игровой запуск не проверены. Сохранение Blueprint и проверка анимаций остаются обязательными шагами до сдачи.
+Нужны Unreal Engine **5.8** и Visual Studio с компонентами C++ для Unreal Engine и Windows SDK.
 
-| Требование | Реализация и проверка |
-|---|---|
-| Класс от `ACharacter` | `AHomeworkCharacter`, исходный код подготовлен |
-| Enhanced Input: Shift и E | C++ `BindAction` готов; Input Action и Mapping Context требуют настройки в проекте |
-| Спринт и `BlueprintReadOnly bIsSprinting` | Готов C++-код; скорость восстанавливается после отпускания, отмены ввода и исчерпания выносливости |
-| Dynamic Multicast Delegate | `OnInteraction.Broadcast()` вызывается по `Started`; подписка и `Print String` в BP ещё не сохранены |
-| Анимация Sprint | Есть C++-родитель AnimInstance с доступом к состоянию персонажа; состояние и переходы в AnimBP ещё не созданы |
-| Выносливость | Общая C++-модель с отдельными исполняемыми тестами; отображение в редакторе / Development через экранное сообщение |
-| Git и README | Добавлены `.gitignore`, описание, таблица управления и CI для модели выносливости |
+1. Склонировать репозиторий.
+2. Выполнить `powershell -ExecutionPolicy Bypass -File Scripts/Build.ps1`. Если движок установлен в другом месте, передать `-EngineRoot "D:\Epic Games\UE_5.8"`.
+3. Открыть `MechanicsHomework.uproject` и нажать **Play**. По умолчанию открывается `Lvl_ThirdPerson` с настроенным GameMode.
 
-## Управление после настройки проекта
+Все Blueprint-ассеты уже настроены. Вручную переподчинять персонажа, создавать Input Actions или собирать графы не нужно. После клонирования выполняется полная сборка C++; папки с готовыми бинарными файлами в Git не входят.
+
+## Управление
 
 | Клавиша | Действие |
 |---|---|
-| W / A / S / D | Движение из стандартного шаблона |
-| Мышь | Камера из стандартного шаблона |
-| Пробел | Прыжок из стандартного шаблона |
-| Левый Shift, удерживать | Спринт со скоростью 900 см/с |
-| E | Однократное событие взаимодействия |
+| W / A / S / D | Движение |
+| Мышь | Камера |
+| Пробел | Прыжок |
+| Левый Shift, удерживать | Спринт: 900 см/с |
+| E | Взаимодействие: `Interaction triggered!` |
 
-Запас выносливости: 100. Расход: 25 единиц/с; восстановление: 20 единиц/с. Полного запаса хватает на 4 секунды спринта. При достижении нуля бег прекращается, даже если Shift удерживается. Для следующего спринта необходимо восстановить запас, отпустить Shift и нажать снова. Простое восстановление запаса не запускает спринт автоматически.
+Выносливость отображается на экране: максимум 100, расход 25/с, восстановление 20/с. Полного запаса хватает на 4 секунды. Расход идёт во время спринта, включая стояние и прыжок. При нуле скорость возвращается к обычной. Для повторного спринта после восстановления нужно отпустить Shift и нажать снова; удержание клавиши не запускает бег автоматически.
 
-Параметры доступны в Class Defaults персонажа. Обычная скорость берётся из `CharacterMovement` перед каждым началом спринта и восстанавливается при его завершении. Расход действует всё время удержания спринта, включая стояние и прыжок.
+## Выполненные требования
 
-## Подключение к Third Person Template
+| Требование | Реализация |
+|---|---|
+| C++-класс от `ACharacter` | `AHomeworkCharacter`; сохранённый `BP_ThirdPersonCharacter` наследуется от него |
+| Enhanced Input | `IA_Sprint` и `IA_Interact` в штатном `IMC_Default`; `BindAction` в C++ |
+| Спринт | `MaxWalkSpeed`, восстановление исходной скорости, `BlueprintReadOnly bIsSprinting` |
+| Dynamic Multicast Delegate | C++ `OnInteraction.Broadcast()`; в BP сохранены Bind Event, `HandleInteraction` и Print String |
+| Animation State Machine | Штатный `ABP_Unarmed` наследуется от `UHomeworkAnimInstance`; в Locomotion добавлен Sprint |
+| Переходы | Walk / Run → Sprint при `bIsSprinting && ShouldMove`; обратно при отрицании условия |
+| Прыжки и камера | Сохранены графы шаблона и внешняя машина Main States для прыжка/падения/приземления |
+| Выносливость | C++ Tick, истощение, восстановление, блокировка повтора и экранное отображение |
+| Git | `.gitignore` исключает Binaries, Intermediate, DerivedDataCache, Saved и другие генерируемые файлы |
 
-Ориентир для настройки: **UE 5.5, Third Person, Blueprint**. Совместимость с конкретной версией редактора необходимо проверить сборкой. Плагин сохраняет движение, камеру, прыжок, меш и настройку стандартного Mapping Context, которые уже находятся в Blueprint шаблона. Мультиплеер не реализован.
+В Sprint используется штатная `MF_Unarmed_Jog_Fwd` с циклическим воспроизведением и скоростью 1.5. Смешивание занимает 0.15 с. `ShouldMove` предотвращает анимацию бега на месте. Во время прыжка позу выбирает внешняя машина Main States.
 
-1. Установить Unreal Engine через Epic Games Launcher и инструменты C++ для выбранной версии UE. Создать проект Games → Third Person → Blueprint.
-2. Закрыть редактор. Скопировать каталог `Plugins/MechanicsHomework` из репозитория в одноимённый каталог проекта. Добавить в проект любой пустой C++-класс через Tools → New C++ Class, если редактор не предлагает сборку исходного плагина. После генерации файлов собрать конфигурацию Development Editor. При первом подключении использовать полную сборку, а не Live Coding.
-3. В Project Settings → Input проверить классы `EnhancedPlayerInput` и `EnhancedInputComponent`. Стандартный шаблон должен уже использовать Enhanced Input.
-4. Открыть `BP_ThirdPersonCharacter`. Через File → Reparent Blueprint выбрать `HomeworkCharacter`, затем Compile. Не удалять существующие графы движения, камеры, прыжка и добавления стандартного Mapping Context.
-5. Выполнить настройку ввода, подписку на делегат и состояние анимации по [инструкции](Docs/BlueprintSetup.md). Сохранить все изменённые ассеты.
-6. Добавить в этот репозиторий `.uproject`, `Config/`, `Content/` и созданный `Source/` из проекта. Плагин должен остаться внутри его `Plugins/`. Не добавлять генерируемые каталоги, исключённые `.gitignore`.
-7. Пройти [проверку в редакторе](Docs/Verification.md). Только после этого проект готов к проверке преподавателем.
+## Проверка
+
+```powershell
+# Быстрые тесты модели выносливости (Python 3 + C++ compiler)
+python Tests/run_tests.py
+
+# Сборка и сквозная проверка в Play In Editor
+powershell -ExecutionPolicy Bypass -File Scripts/Verify.ps1
+
+# Та же проверка с графикой и снимками экрана в Saved/Screenshots
+powershell -ExecutionPolicy Bypass -File Scripts/Verify.ps1 -Render
+```
+
+Тест `Homework.Gameplay.EndToEnd` подаёт W, Shift, пробел и E через PlayerController и настоящий Enhanced Input. Проверяются движение, наличие камеры, скорость, реальное состояние AnimBP, прыжок и посадка, подписка Blueprint на делегат, однократное срабатывание при удержании E, истощение, восстановление и повторное нажатие Shift.
+
+Результаты проверки и окружение: [Docs/Verification.md](Docs/Verification.md). Где расположены сохранённые графы: [Docs/BlueprintSetup.md](Docs/BlueprintSetup.md).
+
+GitHub Actions запускает отдельные C++-тесты выносливости. Полная проверка Unreal выполняется локально, поскольку ей требуется установленный движок. Мультиплеер не предусмотрен. Экранные диагностические сообщения рассчитаны на Editor/Development.
 
 ## Структура
 
-- `Plugins/MechanicsHomework` — исходный Unreal Engine-плагин.
-- `HomeworkCharacter` — обработчики Enhanced Input, делегат, скорость, выносливость и вывод её значения.
-- `HomeworkAnimInstance` — чтение `bIsSprinting` персонажа на игровом потоке для Animation Blueprint.
-- `StaminaModel.h` — модель расхода, восстановления и блокировки повторного спринта после истощения.
-- `Tests/` — тесты именно той модели, которую использует персонаж.
-- `.github/workflows/stamina-tests.yml` — компиляция и запуск тестов модели на GitHub.
+- `MechanicsHomework.uproject`, `Config/`, `Content/` — готовый проект и ресурсы стандартного шаблона Epic.
+- `Plugins/MechanicsHomework/` — игровые C++-механики.
+- `Source/HomeworkGame/` — основной игровой модуль.
+- `Source/HomeworkEditor/` — воспроизводимая настройка ассетов и сквозной тест; в игровой билд не включается.
+- `Scripts/` — сборка и проверка на Windows.
+- `Tests/` — независимые тесты модели выносливости.
 
-## Тесты без Unreal Engine
-
-Нужны Python 3 и компилятор C++: MSVC, GCC или Clang.
-
-```sh
-python Tests/run_tests.py
-```
-
-Тесты проверяют расход, восстановление, остановку при нуле, удержание клавиши после истощения, повторное нажатие, границы значений и зависимость от частоты кадров (30, 60 и 144 FPS). Эти тесты **не подтверждают сборку Unreal-плагина, работу Blueprint, анимаций или всей игры**.
-
-## Документация Epic
-
-Реализация ввода использует события `Started`, `Completed` и `Canceled`, описанные в [Enhanced Input](https://dev.epicgames.com/documentation/en-us/unreal-engine/enhanced-input-in-unreal-engine). Для визуальной части используются [машины состояний](https://dev.epicgames.com/documentation/en-us/unreal-engine/state-machines-in-unreal-engine) и [правила переходов](https://dev.epicgames.com/documentation/en-us/unreal-engine/transition-rules-in-unreal-engine).
+`HomeworkSetup` — служебный commandlet для воспроизведения настройки из исходного шаблона UE 5.8. Для обычного запуска он не нужен. Без `-Configure` он только сохраняет описание графов в `Saved/AssetInspection.txt`; с `-Configure` настраивает и сохраняет ассеты.
