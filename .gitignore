@@ -1,0 +1,27 @@
+# Unreal Engine generated files
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Build/
+.vs/
+.idea/
+.vscode/
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+*.VC.VC.opendb
+*.VC.db-shm
+*.VC.db-wal
+*.sln.docstates
+*.xcodeproj
+*.xcworkspace
+*.code-workspace
+# Test output and Python caches
+Tests/bin/
+__pycache__/
+*.pyc
+# Keep Source, Config, Content, .uproject and .uplugin under version control.

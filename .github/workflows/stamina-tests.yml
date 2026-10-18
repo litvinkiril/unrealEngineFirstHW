@@ -1,0 +1,11 @@
+name: Stamina C++ tests
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  stamina:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and test the gameplay stamina model
+        run: python3 Tests/run_tests.py

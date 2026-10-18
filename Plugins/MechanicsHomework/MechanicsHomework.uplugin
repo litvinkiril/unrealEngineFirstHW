@@ -1,0 +1,12 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "1.0.0",
+  "FriendlyName": "Mechanics Homework",
+  "Description": "Sprint, interaction delegates and stamina for the UE5 Blueprint Third Person Template.",
+  "Category": "Gameplay",
+  "CanContainContent": false,
+  "EnabledByDefault": true,
+  "Modules": [{ "Name": "MechanicsHomework", "Type": "Runtime", "LoadingPhase": "Default" }],
+  "Plugins": [{ "Name": "EnhancedInput", "Enabled": true }]
+}
