@@ -10,6 +10,7 @@
   "Plugins": [
     { "Name": "MechanicsHomework", "Enabled": true },
     { "Name": "EnhancedInput", "Enabled": true },
+    { "Name": "PCG", "Enabled": true },
     { "Name": "PythonScriptPlugin", "Enabled": true, "TargetAllowList": ["Editor"] }
   ]
 }
