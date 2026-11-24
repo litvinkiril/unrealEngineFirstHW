@@ -4,6 +4,7 @@
 #include "Engine/Engine.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "InputAction.h"
+#include "Perception/AISense_Hearing.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMechanicsHomework, Log, All);
 
@@ -50,6 +51,14 @@ void AHomeworkCharacter::Tick(float DeltaSeconds)
     StaminaModel.Advance(DeltaSeconds);
     SynchronizeSprintState();
     DrawStamina();
+    NoiseCooldown -= DeltaSeconds;
+    // Footsteps only when actually running on the ground, never while standing/jumping.
+    if (HasAuthority() && bIsSprinting && GetVelocity().SizeSquared2D() > FMath::Square(100.f)
+        && GetCharacterMovement()->IsMovingOnGround() && NoiseCooldown <= 0.f)
+    {
+        UAISense_Hearing::ReportNoiseEvent(this, GetActorLocation(), 1.f, this, 1800.f, TEXT("Sprint"));
+        NoiseCooldown = 0.4f;
+    }
 }
 
 void AHomeworkCharacter::StartSprint()
