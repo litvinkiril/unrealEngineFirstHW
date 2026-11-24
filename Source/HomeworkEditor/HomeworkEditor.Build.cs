@@ -7,7 +7,7 @@ public class HomeworkEditor : ModuleRules
         PrivateDependencyModuleNames.AddRange(new[] {
             "Core", "CoreUObject", "Engine", "UnrealEd", "Kismet", "KismetCompiler",
             "BlueprintGraph", "AnimGraph", "AnimGraphRuntime", "EnhancedInput", "InputCore",
-            "MechanicsHomework", "AssetRegistry"
+            "MechanicsHomework", "AssetRegistry", "AIModule", "NavigationSystem", "PCG", "BehaviorTreeEditor", "AIGraph"
         });
     }
 }

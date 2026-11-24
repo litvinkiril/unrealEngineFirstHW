@@ -64,6 +64,7 @@ private:
     void SynchronizeSprintState();
     void DrawStamina() const;
 
+    float NoiseCooldown = 0.0f;
     float WalkSpeedBeforeSprint = 500.0f;
     FHomeworkStaminaModel StaminaModel;
 };
