@@ -2,7 +2,7 @@
   "FileVersion": 3,
   "EngineAssociation": "5.8",
   "Category": "Games",
-  "Description": "Third Person mechanics homework: sprint, interaction and stamina.",
+  "Description": "Third-person sprint and interaction with patrolling guards in a PCG courtyard.",
   "Modules": [
     { "Name": "HomeworkGame", "Type": "Runtime", "LoadingPhase": "Default" },
     { "Name": "HomeworkEditor", "Type": "Editor", "LoadingPhase": "Default" }

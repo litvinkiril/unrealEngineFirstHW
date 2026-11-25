@@ -20,11 +20,13 @@ AHomeworkGuard::AHomeworkGuard()
     AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
     GetCapsuleComponent()->InitCapsuleSize(42.f, 96.f);
     GetCharacterMovement()->MaxWalkSpeed = 230.f;
+    // The template locomotion graph uses acceleration to leave Idle.
+    GetCharacterMovement()->GetNavMovementProperties()->bUseAccelerationForPaths = true;
     GetCharacterMovement()->bOrientRotationToMovement = true;
     GetCharacterMovement()->RotationRate = FRotator(0, 480, 0);
     bUseControllerRotationYaw = false;
-    static ConstructorHelpers::FObjectFinder<USkeletalMesh> Mesh(TEXT("/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple"));
-    if (Mesh.Succeeded()) GetMesh()->SetSkeletalMeshAsset(Mesh.Object);
+    static ConstructorHelpers::FObjectFinder<USkeletalMesh> GuardMesh(TEXT("/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple"));
+    if (GuardMesh.Succeeded()) GetMesh()->SetSkeletalMeshAsset(GuardMesh.Object);
     GetMesh()->SetRelativeLocation(FVector(0, 0, -96));
     GetMesh()->SetRelativeRotation(FRotator(0, -90, 0));
     GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);

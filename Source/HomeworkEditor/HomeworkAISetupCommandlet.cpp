@@ -3,6 +3,7 @@
 #include "Animation/AnimInstance.h"
 #include "GameFramework/GameModeBase.h"
 #include "AssetRegistry/AssetRegistryModule.h"
+#include "AssetCompilingManager.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/BlackboardData.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
@@ -20,6 +21,9 @@
 #include "Editor.h"
 #include "FileHelpers.h"
 #include "Builders/CubeBuilder.h"
+#include "ActorFactories/ActorFactory.h"
+#include "Components/SkyAtmosphereComponent.h"
+#include "Materials/MaterialInterface.h"
 #include "Components/BrushComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -59,7 +63,6 @@ bool Save(UObject* Object)
 {
     FSavePackageArgs Args;
     Args.TopLevelFlags = RF_Public | RF_Standalone;
-    Args.SaveFlags = SAVE_NoError;
     return UPackage::SavePackage(Object->GetOutermost(), Object,
         *FPackageName::LongPackageNameToFilename(Object->GetOutermost()->GetName(), TEXT(".uasset")), Args);
 }
@@ -109,8 +112,10 @@ UBTTask_Wait* Wait(UBehaviorTree* Tree, float Seconds)
     Task->RandomDeviation = 0.f;
     return Task;
 }
-UBehaviorTree* Behavior()
+UBlackboardData* Blackboard()
 {
+    if (auto* Existing = LoadObject<UBlackboardData>(nullptr, TEXT("/Game/Homework2/BB_Guard.BB_Guard"), nullptr, LOAD_NoWarn))
+        return Existing;
     auto* BB = Asset<UBlackboardData>(TEXT("BB_Guard"));
     for (FName Name : {FName(TEXT("HomeLocation")), FName(TEXT("PatrolLocation")), FName(TEXT("NoiseLocation"))})
     {
@@ -122,7 +127,14 @@ UBehaviorTree* Behavior()
     Target.KeyType = ObjectKey; BB->Keys.Add(Target);
     FBlackboardEntry Noise; Noise.EntryName = TEXT("HasNoise");
     Noise.KeyType = NewObject<UBlackboardKeyType_Bool>(BB); BB->Keys.Add(Noise);
-    check(Save(BB));
+    return Save(BB) ? BB : nullptr;
+}
+UBehaviorTree* Behavior()
+{
+    if (auto* Existing = LoadObject<UBehaviorTree>(nullptr, TEXT("/Game/Homework2/BT_Guard.BT_Guard"), nullptr, LOAD_NoWarn))
+        return Existing;
+    auto* BB = Blackboard();
+    if (!BB) return nullptr;
     auto* Tree = Asset<UBehaviorTree>(TEXT("BT_Guard")); Tree->BlackboardAsset = BB;
     auto* Root = NewObject<UBTComposite_Selector>(Tree); Tree->RootNode = Root;
     Root->Services.Add(NewObject<UBTService_GuardAwareness>(Tree));
@@ -140,6 +152,8 @@ UBehaviorTree* Behavior()
     auto* Graph = CastChecked<UBehaviorTreeGraph>(FBlueprintEditorUtils::CreateNewGraph(Tree, TEXT("Behavior Tree"),
         UBehaviorTreeGraph::StaticClass(), UEdGraphSchema_BehaviorTree::StaticClass()));
     Tree->BTGraph = Graph;
+    // Adding each decorator requests a recompile. Wait until every graph node is linked.
+    Graph->LockUpdates();
     Graph->GetSchema()->CreateDefaultNodesForGraph(*Graph);
     Graph->OnCreated(); Graph->Initialize();
     // AutoArrange measures Slate widgets and cannot run in a headless commandlet.
@@ -161,11 +175,13 @@ UBehaviorTree* Behavior()
         for (int32 Index = 0; Index < Sequence->Children.Num(); ++Index)
             Place(Sequence->Children[Index].ChildTask, X + Index * 400 - 400, 850);
     }
-    Graph->UpdateAsset();
-    check(Save(Tree)); return Tree;
+    Graph->UnlockUpdates();
+    return Save(Tree) ? Tree : nullptr;
 }
 UPCGGraph* Props()
 {
+    if (auto* Existing = LoadObject<UPCGGraph>(nullptr, TEXT("/Game/Homework2/PCG_Courtyard.PCG_Courtyard"), nullptr, LOAD_NoWarn))
+        return Existing;
     auto* Graph = Asset<UPCGGraph>(TEXT("PCG_Courtyard"));
     UPCGCreatePointsGridSettings* Grid; auto* G = Graph->AddNodeOfType(Grid);
     Grid->GridExtents = FVector(2600, 2600, 0);
@@ -180,28 +196,32 @@ UPCGGraph* Props()
     Spawn->bSynchronousLoad = true;
     Spawn->SetMeshSelectorType(UPCGMeshSelectorWeighted::StaticClass());
     auto* Selector = CastChecked<UPCGMeshSelectorWeighted>(Spawn->MeshSelectorParameters);
-    for (const TCHAR* Path : {TEXT("/Engine/BasicShapes/Cube.Cube"), TEXT("/Engine/BasicShapes/Cylinder.Cylinder")})
+    auto AddProp = [Selector](const TCHAR* MeshPath, const TCHAR* MaterialPath)
     {
         FPCGMeshSelectorWeightedEntry Entry;
-        Entry.Descriptor.StaticMesh = TSoftObjectPtr<UStaticMesh>(FSoftObjectPath(Path));
+        Entry.Descriptor.StaticMesh = TSoftObjectPtr<UStaticMesh>(FSoftObjectPath(MeshPath));
+        Entry.Descriptor.OverrideMaterials.Add(TSoftObjectPtr<UMaterialInterface>(FSoftObjectPath(MaterialPath)));
+        Entry.Descriptor.bUseDefaultCollision = false;
         Entry.Descriptor.BodyInstance.SetCollisionProfileName(TEXT("BlockAll"));
         Entry.Descriptor.bCanEverAffectNavigation = true;
         Selector->MeshEntries.Add(Entry);
-    }
+    };
+    AddProp(TEXT("/Engine/BasicShapes/Cube.Cube"),
+        TEXT("/Game/LevelPrototyping/Materials/MI_PrototypeGrid_TopDark.MI_PrototypeGrid_TopDark"));
+    AddProp(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"),
+        TEXT("/Game/ThirdPerson/MI_ThirdPersonColWay.MI_ThirdPersonColWay"));
     G->SetNodePosition(0,0); T->SetNodePosition(300,0); S->SetNodePosition(600,0);
     Graph->AddEdge(G, TEXT("Out"), T, TEXT("In"));
     Graph->AddEdge(T, TEXT("Out"), S, TEXT("In"));
     Graph->AddEdge(S, TEXT("Out"), Graph->GetOutputNode(), TEXT("Out"));
-    check(Save(Graph)); return Graph;
+    return Save(Graph) ? Graph : nullptr;
 }
 template<class T> T* Volume(UWorld* World, FVector Size)
 {
     auto* V = World->SpawnActor<T>();
     auto* Builder = NewObject<UCubeBuilder>();
     Builder->X = Size.X; Builder->Y = Size.Y; Builder->Z = Size.Z;
-    Builder->Build(World, V);
-    V->GetBrushComponent()->BuildSimpleBrushCollision();
-    V->PostEditChange();
+    UActorFactory::CreateBrushForVolumeActor(V, Builder);
     return V;
 }
 }
@@ -214,21 +234,29 @@ int32 UHomeworkAISetupCommandlet::Main(const FString& Params)
 {
     using namespace HomeworkAISetup;
     auto* Tree = Behavior(); auto* Graph = Props();
+    if (!Tree || !Graph) return 1;
     UWorld* World = GEditor->NewMap();
     World->GetWorldSettings()->DefaultGameMode = LoadClass<AGameModeBase>(nullptr,
         TEXT("/Game/ThirdPerson/Blueprints/BP_ThirdPersonGameMode.BP_ThirdPersonGameMode_C"));
     auto* Floor = World->SpawnActor<AStaticMeshActor>(FVector(0,0,-50), FRotator::ZeroRotator);
     Floor->SetActorLabel(TEXT("Courtyard Floor"));
     Floor->GetStaticMeshComponent()->SetStaticMesh(LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube")));
+    Floor->GetStaticMeshComponent()->SetMaterial(0, LoadObject<UMaterialInterface>(nullptr,
+        TEXT("/Game/LevelPrototyping/Materials/MI_PrototypeGrid_Gray.MI_PrototypeGrid_Gray")));
     Floor->SetActorScale3D(FVector(80,80,1));
     Floor->GetStaticMeshComponent()->SetCollisionProfileName(TEXT("BlockAll"));
     auto* Sun = World->SpawnActor<ADirectionalLight>(FVector(0,0,1000), FRotator(-50,-30,0));
-    Sun->GetLightComponent()->SetIntensity(4.f);
-    auto* Sky = World->SpawnActor<ASkyLight>(); Sky->GetLightComponent()->SetIntensity(1.f);
+    Sun->GetLightComponent()->SetMobility(EComponentMobility::Movable);
+    Sun->GetLightComponent()->SetIntensity(8.f);
+    World->SpawnActor<ASkyAtmosphere>();
+    auto* Sky = World->SpawnActor<ASkyLight>();
+    Sky->GetLightComponent()->SetMobility(EComponentMobility::Movable);
+    Sky->GetLightComponent()->SetRealTimeCapture(true);
     World->SpawnActor<APlayerStart>(FVector(-3200,0,110), FRotator::ZeroRotator);
     auto* PCG = Volume<APCGVolume>(World, FVector(6000,6000,1000));
     PCG->SetActorLabel(TEXT("PCG Courtyard - change Seed to regenerate"));
     PCG->PCGComponent->Seed = 242;
+    PCG->PCGComponent->SetIsPartitioned(false);
     PCG->PCGComponent->SetGraph(Graph);
     PCG->PCGComponent->Generate(true);
     auto* PCGSubsystem = World->GetSubsystem<UPCGSubsystem>();
@@ -245,7 +273,19 @@ int32 UHomeworkAISetupCommandlet::Main(const FString& Params)
     FNavigationSystem::AddNavigationSystemToWorld(*World, FNavigationSystemRunMode::EditorMode);
     auto* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
     if (!Nav) return 2;
-    Nav->OnNavigationBoundsUpdated(NavBounds); Nav->Build();
+    Nav->OnNavigationBoundsUpdated(NavBounds);
+    FlushAsyncLoading();
+    FAssetCompilingManager::Get().FinishAllCompilation();
+    Nav->RemoveNavigationBuildLock(ENavigationBuildLock::AsyncLoadLock,
+        UNavigationSystemV1::ELockRemovalRebuildAction::NoRebuild);
+    Nav->Tick(0.016f);
+    Nav->Build();
+    FNavLocation Start;
+    if (!Nav->ProjectPointToNavigation(FVector(0,0,100), Start, FVector(100,100,250)))
+    {
+        UE_LOG(LogTemp, Error, TEXT("No walkable navigation under the guard spawn."));
+        return 2;
+    }
     for (FVector Location : {FVector(0,0,110), FVector(0,1800,110)})
     {
         auto* Guard = World->SpawnActor<AHomeworkGuard>(Location, FRotator::ZeroRotator);
